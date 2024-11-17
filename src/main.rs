@@ -1,3 +1,5 @@
+use askama::Template;
+use axum::response::Html;
 use axum::{
     extract::State,
     http::StatusCode,
@@ -10,6 +12,7 @@ use std::{
     fs::{exists, File},
     time::Duration,
 };
+use tower_http::cors::CorsLayer;
 
 const DB_URL: &str = "sqlite://db.db";
 
@@ -32,6 +35,9 @@ async fn main() {
         .route("/", get(index))
         .route("/users", get(get_users))
         .route("/users", post(create_user))
+        .route("/htmx-index", get(htmx_index))
+        .route("/htmx-users", get(htmx_users))
+        .layer(CorsLayer::permissive())
         .with_state(pool);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
@@ -76,4 +82,32 @@ struct CreateUser {
 struct User {
     id: u64,
     username: String,
+}
+
+// htmx
+#[derive(Template)]
+#[template(path = "index.html")]
+struct IndexTemplate {}
+
+#[derive(Template)]
+#[template(path = "users.html")]
+struct UsersTemplate {
+    users: Vec<User>,
+}
+
+async fn htmx_index() -> Html<String> {
+    let template = IndexTemplate {};
+    let rendered = template.render().expect("failed to render index html");
+    Html(rendered)
+}
+
+async fn htmx_users(State(pool): State<SqlitePool>) -> Html<String> {
+    let users: Vec<User> = sqlx::query_as("select * from users;")
+        .fetch_all(&pool)
+        .await
+        .expect("failed to load users");
+
+    let template = UsersTemplate { users };
+    let rendered = template.render().expect("failed to render index html");
+    Html(rendered)
 }
