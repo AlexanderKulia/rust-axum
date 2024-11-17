@@ -24,7 +24,7 @@ async fn main() {
         .acquire_timeout(Duration::from_secs(5))
         .connect(&DB_URL)
         .await
-        .expect("cannot connect to database");
+        .expect("failed to connect to database");
 
     sqlx::query("create table if not exists users (id integer primary key not null, username varchar(255) not null);").execute(&pool).await.expect("failed to migrate database");
 
